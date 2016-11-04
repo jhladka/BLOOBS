@@ -6,14 +6,18 @@ from settings import settings
 
 
 class Bloob(object):
-    def __init__(self):
-        pass
+    def __init__(self, image, x, y):
+        # Set image's anchor point
+        image.anchor_x, image.anchor_y = image.width/2, image.height/2
+        self.sprite = pyglet.sprite.Sprite(image, x=y, y=y, batch=batch,
+                                            group=foreground)
+
 
 
 class Cannon(object):
     def __init__(self, image):
         # Set image's anchor point
-        image.anchor_x, image.anchor_y = image.width/2, 35
+        image.anchor_x, image.anchor_y = image.width/2, 40
         self.sprite = pyglet.sprite.Sprite(image, x=315, y=50, batch=batch,
                                             group=foreground)
 
@@ -30,19 +34,34 @@ class Cannon(object):
         #if 'FIRE' in pressed_keys:
 
 
+class DangerBar(object):
+    def __init__(self, game):
+        pass
+
+
 class Game(object):
     def __init__(self):
         self.window = pyglet.window.Window(800, 600)
         self.window.push_handlers(keys)
         img = pyglet.resource.image(settings.cannon)
         self.Objects = [Cannon(img)]
-        #self.initialSettings()
+        self.initialSettings()
+        self.showLabels()
+        self.tnt = DangerBar(self)
 
     def initialSettings(self):
-        self.level = 0
+        self.level = 1
         self.lives = 3
         self.score = 0
         #self.start()
+
+    def showLabels(self):
+        self.scoreLabel = pyglet.text.Label(text=str(self.score),
+                            font_size=30, x=760, y=63, color=(0, 0, 0, 200),
+                            anchor_x='center', anchor_y='center', batch=batch)
+        self.levelLabel = pyglet.text.Label(text='level: '+ str(self.level),
+                            font_size=20, x=100, y=50, color=(0, 0, 0, 200),
+                            anchor_x='center', anchor_y='center', batch=batch)
 
     def update(self, dt):
         # Update the positions of all objects:
