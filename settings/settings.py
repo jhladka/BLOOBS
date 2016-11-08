@@ -15,6 +15,8 @@ bloobs      = (('blue.png', 'blue'),
                ('purple.png', 'purple'),
                ('pink.png', 'pink'))
 
-cannon_coordinates  = (315, 50)
+cannonPosition          = (315, 50)
+bloobInCannonPosition = (315, 52)
+nextBloobPosition      = (562, 47)
 
-velocity = 10
+velocity = 350

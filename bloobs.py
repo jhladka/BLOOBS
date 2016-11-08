@@ -63,9 +63,32 @@ class Cannon(object):
         # Set image's anchor point
         image = pyglet.resource.image(settings.cannon)
         image.anchor_x, image.anchor_y = image.width/2, 42
-        x, y = settings.cannon_coordinates
+        x, y = settings.cannonPosition
         self.sprite = pyglet.sprite.Sprite(image, x=x, y=y, batch=batch,
                                             group=foreground)
+        self.enabled = True
+
+    def load(self, dt, game):
+        game.bloobsInCannon[0].sprite.position = settings.bloobInCannonPosition
+        x, y = settings.nextBloobPosition
+        game.bloobsInCannon.append(Bloob(x, y))
+
+    def enable(self, dt):
+        self.enabled = True
+
+    def shoot(self, game):
+        # Shoot the bloob:
+        if self.enabled == True:
+            self.enabled = False
+            pyglet.clock.schedule_once(self.enable, 1)
+            rad = pi/2 - radians(self.sprite.rotation)
+            shootedBloob = game.bloobsInCannon.pop(0)
+            shootedBloob.movement = 'shot'
+            shootedBloob.radians = rad
+            game.movingBloobs.append(shootedBloob)
+            pressed_keys.clear()
+            # Load the cannon:
+            pyglet.clock.schedule_once(self.load, 1, game)
 
     def tick(self, dt, game):
         # Moving the cannon with arrow keys:
@@ -82,11 +105,9 @@ class Cannon(object):
             self.sprite.rotation = 75
         if self.sprite.rotation < -75:
             self.sprite.rotation = -75
+        # Shooting the bloob from cannon:
         if 'SHOOT' in pressed_keys:
-            rad = pi/2 - radians(self.sprite.rotation)
-            game.bloobsInCannon[0].movement = 'shot'
-            game.bloobsInCannon[0].radians = rad
-            game.movingBloobs.append(game.bloobsInCannon[0])
+            self.shoot(game)
 
 
 class DangerBar(object):
@@ -116,10 +137,8 @@ class Game(object):
         self.start()
 
     def start(self):
-        x1 = settings.cannon_coordinates[0]
-        y1 = settings.cannon_coordinates[1] + 2
-        x2 = settings.cannon_coordinates[0] + 247
-        y2 = settings.cannon_coordinates[1] - 3
+        x1, y1 = settings.bloobInCannonPosition
+        x2, y2 = settings.nextBloobPosition
         self.bloobsInCannon = [Bloob(x1, y1), Bloob(x2, y2)]
         self.wall = Wall(self)
 
