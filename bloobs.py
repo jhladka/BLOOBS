@@ -2,36 +2,91 @@
 # -*- coding: utf-8 -*-
 
 import pyglet
+import random
+from math import sin
+from math import cos
+from math import radians
+from math import pi
 from settings import settings
 
 
 class Bloob(object):
-    def __init__(self, image, x, y):
+    def __init__(self, x, y):
+        bloob = random.choice(settings.bloobs[0:6])
+        image = pyglet.resource.image(bloob[0])
         # Set image's anchor point
         image.anchor_x, image.anchor_y = image.width/2, image.height/2
-        self.sprite = pyglet.sprite.Sprite(image, x=y, y=y, batch=batch,
+        self.sprite = pyglet.sprite.Sprite(image, x=x, y=y, batch=batch,
                                             group=foreground)
+        self.color = bloob[1]
+        """
+    def tick_wall(self, dt, game):
+        pass
+        #self.sprite.x += 2
+        #self.sprite.y += 3
+        """
 
+    def move(self, dt):
+        if self.movement == 'shot':
+            self.sprite.x += shot_velocity * cos(self.radians) * dt
+            self.sprite.y += shot_velocity * sin(self.radians) * dt
+        if self.movement == 'fall':
+            pass
+
+
+class Wall(object):
+    def __init__(self, game):
+        self.NB = 17    # Number of Bloobs in Line 0, 2, 4, ...
+        self.lines = []
+        y = game.firstLine_y
+        for line in range(game.numberOfLines):
+            nb = self.NB - line%2
+            x = 19 + 18*(line%2)
+            self.lines.append(self.generateBloobsLine(nb, x, y))
+            y = y - 36
+
+    def generateBloobsLine(self, nb, x, y):
+        line = []
+        for b in range(nb):
+            line.append(Bloob(x, y))
+            x += 37
+        return line
+
+    def deleteBloob(self, bloob, game):
+        pass
+        #posle signal ze ma spadnut, vymaze ho z self.lines
+        #a az bude dole, zmaze uplne
 
 
 class Cannon(object):
-    def __init__(self, image):
+    def __init__(self):
         # Set image's anchor point
-        image.anchor_x, image.anchor_y = image.width/2, 40
-        self.sprite = pyglet.sprite.Sprite(image, x=315, y=50, batch=batch,
+        image = pyglet.resource.image(settings.cannon)
+        image.anchor_x, image.anchor_y = image.width/2, 42
+        x, y = settings.cannon_coordinates
+        self.sprite = pyglet.sprite.Sprite(image, x=x, y=y, batch=batch,
                                             group=foreground)
 
-    def tick(self, dt):
+    def tick(self, dt, game):
+        # Moving the cannon with arrow keys:
         delta_rotation = 1
         if 'RIGHT' in pressed_keys:
             self.sprite.rotation += delta_rotation
-            if self.sprite.rotation > 90:
-                self.sprite.rotation = 90
         if 'LEFT' in pressed_keys:
             self.sprite.rotation -= delta_rotation
-            if self.sprite.rotation < -90:
-                self.sprite.rotation = -90
-        #if 'FIRE' in pressed_keys:
+        # Moving the cannon with mouse:
+        if game.mouseMovement != None:
+            self.sprite.rotation += game.mouseMovement
+            game.mouseMovement = None
+        if self.sprite.rotation > 75:
+            self.sprite.rotation = 75
+        if self.sprite.rotation < -75:
+            self.sprite.rotation = -75
+        if 'SHOOT' in pressed_keys:
+            rad = pi/2 - radians(self.sprite.rotation)
+            game.bloobsInCannon[0].movement = 'shot'
+            game.bloobsInCannon[0].radians = rad
+            game.movingBloobs.append(game.bloobsInCannon[0])
 
 
 class DangerBar(object):
@@ -43,8 +98,9 @@ class Game(object):
     def __init__(self):
         self.window = pyglet.window.Window(800, 600)
         self.window.push_handlers(keys)
-        img = pyglet.resource.image(settings.cannon)
-        self.Objects = [Cannon(img)]
+        self.mouseMovement = None
+        self.cannon = Cannon()
+        self.movingBloobs = []
         self.initialSettings()
         self.showLabels()
         self.tnt = DangerBar(self)
@@ -53,21 +109,39 @@ class Game(object):
         self.level = 1
         self.lives = 3
         self.score = 0
-        #self.start()
+        self.bloobsUsed = 0
+        self.lastShot = 0
+        self.numberOfLines = 9
+        self.firstLine_y = self.window.height - 18 # it's half size of bloob image
+        self.start()
+
+    def start(self):
+        x1 = settings.cannon_coordinates[0]
+        y1 = settings.cannon_coordinates[1] + 2
+        x2 = settings.cannon_coordinates[0] + 247
+        y2 = settings.cannon_coordinates[1] - 3
+        self.bloobsInCannon = [Bloob(x1, y1), Bloob(x2, y2)]
+        self.wall = Wall(self)
 
     def showLabels(self):
+        self.bloobsUsedLabel = pyglet.text.Label(text=str(self.bloobsUsed),
+                            font_size=24, x=775, y=233, color=(0, 0, 0, 200),
+                            anchor_x='right', anchor_y='center', batch=batch)
+        self.lastShotLabel = pyglet.text.Label(text=str(self.lastShot),
+                            font_size=24, x=775, y=147, color=(0, 0, 0, 200),
+                            anchor_x='right', anchor_y='center', batch=batch)
         self.scoreLabel = pyglet.text.Label(text=str(self.score),
-                            font_size=30, x=760, y=63, color=(0, 0, 0, 200),
-                            anchor_x='center', anchor_y='center', batch=batch)
+                            font_size=24, x=775, y=63, color=(0, 0, 0, 200),
+                            anchor_x='right', anchor_y='center', batch=batch)
         self.levelLabel = pyglet.text.Label(text='level: '+ str(self.level),
-                            font_size=20, x=100, y=50, color=(0, 0, 0, 200),
+                            font_size=20, x=95, y=50, color=(0, 0, 0, 200),
                             anchor_x='center', anchor_y='center', batch=batch)
 
     def update(self, dt):
         # Update the positions of all objects:
-        for obj in self.Objects:
-            obj.tick(dt)
-
+        self.cannon.tick(dt, game)
+        for b in self.movingBloobs:
+            b.move(dt)
 
 # Setup our keyboard handler
 key = pyglet.window.key
@@ -82,12 +156,12 @@ batch = pyglet.graphics.Batch()
 background = pyglet.graphics.OrderedGroup(0)
 foreground = pyglet.graphics.OrderedGroup(1)
 
-### GAME ###
-
 img = pyglet.resource.image(settings.background)
 Background = pyglet.sprite.Sprite(img=img, batch=batch, group=background)
 game = Game()
+shot_velocity = settings.velocity
 pyglet.clock.schedule_interval(game.update, 1./60)
+
 
 @game.window.event()
 def on_draw():
@@ -103,5 +177,10 @@ def on_key_press(symbol, modifiers):
 def on_key_release(symbol, modifiers):
     if symbol in key_control:
         pressed_keys.discard(key_control[symbol])
+
+@game.window.event()
+def on_mouse_motion(x, y, dx, dy):
+    game.mouseMovement = dx
+
 
 pyglet.app.run()

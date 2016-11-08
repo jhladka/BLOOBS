@@ -6,5 +6,15 @@ import pyglet
 pyglet.resource.path = ['PNG']
 pyglet.resource.reindex()
 
-background          = 'background.png'
-cannon              = 'cannon.png'
+background  = 'background.png'
+cannon      = 'cannon.png'
+bloobs      = (('blue.png', 'blue'),
+               ('red.png', 'red'),
+               ('green.png', 'green'),
+               ('yellow.png', 'yellow'),
+               ('purple.png', 'purple'),
+               ('pink.png', 'pink'))
+
+cannon_coordinates  = (315, 50)
+
+velocity = 10
