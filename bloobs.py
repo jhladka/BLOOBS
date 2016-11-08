@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import pyglet
+from pyglet.window import mouse
 import random
 from math import sin
 from math import cos
@@ -106,8 +107,9 @@ class Cannon(object):
         if self.sprite.rotation < -75:
             self.sprite.rotation = -75
         # Shooting the bloob from cannon:
-        if 'SHOOT' in pressed_keys:
+        if 'SHOOT' in pressed_keys or 'SHOOT' in pressed_mouse:
             self.shoot(game)
+
 
 
 class DangerBar(object):
@@ -162,13 +164,16 @@ class Game(object):
         for b in self.movingBloobs:
             b.move(dt)
 
-# Setup our keyboard handler
+# Setup our keyboard handler and mouse
 key = pyglet.window.key
 keys = key.KeyStateHandler()
 pressed_keys = set()
 key_control = {key.UP:    'SHOOT',
                key.RIGHT: 'RIGHT',
                key.LEFT:  'LEFT'}
+pressed_mouse = set()
+mouse_control = {mouse.LEFT:    'SHOOT',
+                 mouse.MIDDLE:  'SHOOT'}
 
 # Ordered groups
 batch = pyglet.graphics.Batch()
@@ -200,6 +205,14 @@ def on_key_release(symbol, modifiers):
 @game.window.event()
 def on_mouse_motion(x, y, dx, dy):
     game.mouseMovement = dx
+
+@game.window.event()
+def on_mouse_press(x, y, button, modifiers):
+    pressed_mouse.add(mouse_control[button])
+
+@game.window.event()
+def on_mouse_release(x, y, button, modifiers):
+    pressed_mouse.discard(mouse_control[button])
 
 
 pyglet.app.run()
