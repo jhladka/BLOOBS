@@ -8,7 +8,13 @@ from math import sin
 from math import cos
 from math import radians
 from math import pi
+from math import sqrt
 from settings import settings
+
+
+class Score(object):
+    def __init__(self, N, M, S):
+        pass
 
 
 class Bloob(object):
@@ -20,40 +26,95 @@ class Bloob(object):
         self.sprite = pyglet.sprite.Sprite(image, x=x, y=y, batch=batch,
                                             group=foreground)
         self.color = bloob[1]
-        """
-    def tick_wall(self, dt, game):
-        pass
-        #self.sprite.x += 2
-        #self.sprite.y += 3
-        """
 
-    def move(self, dt):
+    def distance(self, another_bloob):
+        dx = self.sprite.x - another_bloob.sprite.x
+        dy = self.sprite.y - another_bloob.sprite.y
+        return sqrt(dx**2 + dy**2)
+
+    def move(self, dt, game):
+        # Bloob shooted from cannon:
         if self.movement == 'shot':
+            # Check if the bloob hits the edge of the wall:
+            #
+            #
+            # Check if the bloob hits the bloobs in the wall:
+            line, spot = self.gridPosition(game)
+            #print line, spot
+            hit = set()
+            if line%2 == 0:
+                neighborPositions = ((line - 1, spot - 1),
+                                     (line - 1, spot),
+                                     (line,     spot - 1),
+                                     (line,     spot + 1),
+                                     (line + 1, spot - 1),
+                                     (line + 1, spot))
+            else:
+                neighborPositions = ((line - 1, spot),
+                                     (line - 1, spot + 1),
+                                     (line,     spot - 1),
+                                     (line,     spot + 1),
+                                     (line + 1, spot),
+                                     (line + 1, spot + 1))
+            for neighbor in neighborPositions:
+                try:
+                    line = neighbor[0]
+                    spot = neighbor[1]
+                    wallBloob = game.wall.lines[line][spot]
+                    if wallBloob != None:
+                        if self.distance(wallBloob) <= game.wall.bloobImageSize:
+                            hit.add((wallBloob, line, spot))
+                except IndexError:
+                    pass
+            if len(hit) > 0:
+                while len(hit) > 0:
+                    bloob, line, spot = hit.pop()
+                    game.wall.deleteBloob(bloob, line, spot, game)
+                return
             self.sprite.x += shot_velocity * cos(self.radians) * dt
             self.sprite.y += shot_velocity * sin(self.radians) * dt
         if self.movement == 'fall':
             pass
 
+    def gridPosition(self, game):
+        y = game.window.height + game.wall.shift_y - self.sprite.y
+        line = int(round(y))/game.wall.lineHeight
+        x = self.sprite.x - game.wall.shift_x - game.wall.bloobImageSize/2*(line%2)
+        spot = int(round(x))/game.wall.bloobSpotWidth
+        #print line, spot
+        return line, spot
+
 
 class Wall(object):
     def __init__(self, game):
         self.NB = 17    # Number of Bloobs in Line 0, 2, 4, ...
+        self.bloobImageSize = 36
+        self.lineHeight = self.bloobImageSize - 1    # Height of bloobs line
+        self.bloobSpotWidth = self.bloobImageSize + 1
+        self.shift_x = 1
+        self.shift_y = -2
+        self.firstLine_y = game.window.height + self.shift_y - self.bloobImageSize/2
         self.lines = []
-        y = game.firstLine_y
-        for line in range(game.numberOfLines):
+        y = self.firstLine_y
+        for line in range(game.maxLines):
             nb = self.NB - line%2
-            x = 19 + 18*(line%2)
-            self.lines.append(self.generateBloobsLine(nb, x, y))
-            y = y - 36
+            if line < game.numberOfLines:
+                x = self.shift_x + self.bloobImageSize/2*((line%2) + 1)
+                self.lines.append(self.generateBloobsLine(nb, x, y))
+                y = y - self.lineHeight
+            else:
+                self.lines.append([None for i in range(nb)])
 
     def generateBloobsLine(self, nb, x, y):
         line = []
         for b in range(nb):
             line.append(Bloob(x, y))
-            x += 37
+            x += self.bloobSpotWidth
         return line
 
-    def deleteBloob(self, bloob, game):
+    def deleteBloob(self, bloob, line, spot, game):
+        game.wall.lines[line][spot] = None
+        bloob.sprite.delete()
         pass
         #posle signal ze ma spadnut, vymaze ho z self.lines
         #a az bude dole, zmaze uplne
@@ -81,6 +142,8 @@ class Cannon(object):
         # Shoot the bloob:
         if self.enabled == True:
             self.enabled = False
+            game.bloobsUsed += 1
+            game.bloobsUsedLabel.text = str(game.bloobsUsed)
             pyglet.clock.schedule_once(self.enable, 1)
             rad = pi/2 - radians(self.sprite.rotation)
             shootedBloob = game.bloobsInCannon.pop(0)
@@ -134,8 +197,10 @@ class Game(object):
         self.score = 0
         self.bloobsUsed = 0
         self.lastShot = 0
+        self.maxLines = 14
         self.numberOfLines = 9
-        self.firstLine_y = self.window.height - 18 # it's half size of bloob image
+        self.shift_x = 1
+        self.shift_y = 2
         self.start()
 
     def start(self):
@@ -160,9 +225,9 @@ class Game(object):
 
     def update(self, dt):
         # Update the positions of all objects:
-        self.cannon.tick(dt, game)
+        self.cannon.tick(dt, self)
         for b in self.movingBloobs:
-            b.move(dt)
+            b.move(dt, self)
 
 # Setup our keyboard handler and mouse
 key = pyglet.window.key
