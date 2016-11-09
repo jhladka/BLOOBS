@@ -34,6 +34,17 @@ class Bloob(object):
         dy = self.sprite.y - another_bloob.sprite.y
         return sqrt(dx**2 + dy**2)
 
+    def findNeighborPositions(self, line, spot):
+        if line%2 == 0:
+            neighborPositions = ((line - 1, spot - 1), (line - 1, spot    ),
+                                 (line,     spot - 1), (line,     spot + 1),
+                                 (line + 1, spot - 1), (line + 1, spot    ))
+        else:
+            neighborPositions = ((line - 1, spot    ), (line - 1, spot + 1),
+                                 (line,     spot - 1), (line,     spot + 1),
+                                 (line + 1, spot    ), (line + 1, spot + 1))
+        return neighborPositions
+
     def move(self, dt, game):
         # Bloob shooted from cannon:
         if self.movement == 'shot':
@@ -45,20 +56,7 @@ class Bloob(object):
             # Find neighboring bloobs in the wall:
             line, spot, spot_x, spot_y = self.gridPosition(game)
             neighbors = set()
-            if line%2 == 0:
-                neighborPositions = ((line - 1, spot - 1),
-                                     (line - 1, spot),
-                                     (line,     spot - 1),
-                                     (line,     spot + 1),
-                                     (line + 1, spot - 1),
-                                     (line + 1, spot))
-            else:
-                neighborPositions = ((line - 1, spot),
-                                     (line - 1, spot + 1),
-                                     (line,     spot - 1),
-                                     (line,     spot + 1),
-                                     (line + 1, spot),
-                                     (line + 1, spot + 1))
+            neighborPositions = self.findNeighborPositions(line, spot)
             for position in neighborPositions:
                 try:
                     l = position[0]
@@ -66,19 +64,18 @@ class Bloob(object):
                     wallBloob = game.wall.lines[l][s]
                     if wallBloob != None:
                         neighbors.add((wallBloob, l, s))
+                # In case the bloob is at the beginning/end of line:
                 except IndexError:
                     pass
             # Check the distance between neighboring bloobs:
-            to_remove = set()
+            hit = 0
             for b in neighbors:
                 d = self.distance(b[0])
-                if d >= game.wall.bloobImageSize:
-                    to_remove.add(b)
-            for element in to_remove:
-                neighbors.remove(element)
-            #neighbors.difference(to_remove)    # THIS DOESN'T WORK, WHY???
+                if d < game.wall.bloobImageSize:
+                    hit = 1
+                    break
             # When the bloob hits other bloobs in the wall:
-            if len(neighbors) > 0:
+            if hit:
                 # Check whether there are bloobs of the same color:
                 sameColorNeighbors = set()
                 while len(neighbors) > 0:
@@ -86,20 +83,41 @@ class Bloob(object):
                     if b[0].color == self.color:
                         sameColorNeighbors.add(b)
                 # When there isn't bloob with the same color as shooted bloob:
-                """
                 if len(sameColorNeighbors) == 0:
                     self.movement = None
-                    line, spot, spot_x, spot_y = self.gridPosition(game)
                     game.wall.addBloobToWall(self, line, spot, spot_x, spot_y)
-                """
-                self.movement = None
-                line, spot, spot_x, spot_y = self.gridPosition(game)
-                game.wall.addBloobToWall(self, line, spot, spot_x, spot_y)
-                """
-                while len(hit) > 0:
-                    bloob, line, spot = hit.pop()
-                    game.wall.deleteBloob(bloob, line, spot, game)
-                """
+                # When there are bloobs with the same color:
+                else:
+                    todo = list(sameColorNeighbors)
+                    el = 0
+                    while el < len(todo):
+                        b = todo[el]
+                        el += 1
+                        neighborsOfNeighbor = self.findNeighborPositions(b[1], b[2])
+                        for b1 in neighborsOfNeighbor:
+                            try:
+                                l = b1[0]
+                                s = b1[1]
+                                bloob = game.wall.lines[l][s]
+                                if bloob != None and bloob.color == self.color:
+                                    if (bloob, l, s) not in todo:
+                                        todo.append((bloob, l, s))
+                                        sameColorNeighbors.add((bloob, l, s))
+                            # In case the bloob is at the beginning/end of line:
+                            except IndexError:
+                                pass
+                    # Delete bloobs of same color:
+                    if len(sameColorNeighbors) > 1:
+                        while sameColorNeighbors:
+                            b, l, s = sameColorNeighbors.pop()
+                            game.wall.deleteBloobFromWall(b, l, s, game)
+                        ### TODO : este skontrolovat ci neostali nejake bloobs visiet!!!
+                        self.sprite.delete()
+                        game.movingBloobs.remove(self)
+                        return
+                    else:
+                        game.movingBloobs.remove(self)
+                        game.wall.addBloobToWall(self, line, spot, spot_x, spot_y)
                 return
             # Update bloob coordinates:
             self.sprite.x += shot_velocity * cos(self.radians) * dt
@@ -145,7 +163,7 @@ class Wall(object):
             x += self.bloobSpotWidth
         return line
 
-    def deleteBloob(self, bloob, line, spot, game):
+    def deleteBloobFromWall(self, bloob, line, spot, game):
         game.wall.lines[line][spot] = None
         bloob.sprite.delete()
         pass
@@ -158,7 +176,7 @@ class Wall(object):
             bloob.sprite.x = spot_x
             bloob.sprite.y = spot_y
         except IndexError:
-            pass
+            print 'GAME OVER!!!'
             #game.gameOver()
 
 
@@ -214,7 +232,6 @@ class Cannon(object):
         # Shooting the bloob from cannon:
         if 'SHOOT' in pressed_keys or 'SHOOT' in pressed_mouse:
             self.shoot(game)
-
 
 
 class DangerBar(object):
