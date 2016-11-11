@@ -19,4 +19,4 @@ cannonPosition          = (315, 50)
 bloobInCannonPosition = (315, 52)
 nextBloobPosition      = (562, 47)
 
-velocity = 350
+velocity = 600
