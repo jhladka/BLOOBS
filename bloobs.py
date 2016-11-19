@@ -331,7 +331,7 @@ class Cannon(object):
             self.sprite.rotation -= delta_rotation
         # Moving the cannon with mouse:
         if game.mouseMovement != None:
-            self.sprite.rotation += game.mouseMovement
+            self.sprite.rotation += 1.5*game.mouseMovement
             game.mouseMovement = None
         self.sprite.rotation = min(self.sprite.rotation, 75)
         self.sprite.rotation = max(self.sprite.rotation, -75)
@@ -508,33 +508,34 @@ img = pyglet.resource.image(settings.background)
 Background = pyglet.sprite.Sprite(img=img, batch=batch, group=background)
 game = Game()
 shot_velocity = settings.velocity
-pyglet.clock.schedule_interval(game.update, 1./120)
+#pyglet.clock.schedule_interval(game.update, 1./50)
+pyglet.clock.schedule(game.update)
 
 
-@game.window.event()
+@game.window.event
 def on_draw():
     game.window.clear()
     batch.draw()
 
-@game.window.event()
+@game.window.event
 def on_key_press(symbol, modifiers):
     if symbol in key_control:
         pressed_keys.add(key_control[symbol])
 
-@game.window.event()
+@game.window.event
 def on_key_release(symbol, modifiers):
     if symbol in key_control:
         pressed_keys.discard(key_control[symbol])
 
-@game.window.event()
+@game.window.event
 def on_mouse_motion(x, y, dx, dy):
     game.mouseMovement = dx
 
-@game.window.event()
+@game.window.event
 def on_mouse_press(x, y, button, modifiers):
     pressed_mouse.add(mouse_control[button])
 
-@game.window.event()
+@game.window.event
 def on_mouse_release(x, y, button, modifiers):
     pressed_mouse.discard(mouse_control[button])
 
