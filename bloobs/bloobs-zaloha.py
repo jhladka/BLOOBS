@@ -11,10 +11,13 @@ from math import cos
 from math import radians
 from math import pi
 from math import sqrt
-from settings import settings
+import settings
 
 
 class Bloob(object):
+    """
+    Represents the bloob.
+    """
     def __init__(self, x, y, images, colors):
         while 1:
             bloob = random.choice(images)
@@ -28,11 +31,17 @@ class Bloob(object):
         self.color = bloob[1]
 
     def distance(self, another_bloob):
+        """
+        Calculates distance between two bloobs.
+        """
         dx = self.sprite.x - another_bloob.sprite.x
         dy = self.sprite.y - another_bloob.sprite.y
         return sqrt(dx**2 + dy**2)
 
     def gridPosition(self, game):
+        """
+        Calculates bloob's position in wall grid according to its current position.
+        """
         y = game.wall.top - self.sprite.y
         line = int(y)/game.lineHeight
         spot_y = game.wall.top - (line + 1/2.)*game.lineHeight
@@ -46,12 +55,22 @@ class Bloob(object):
         return line, spot, spot_x, spot_y
 
     def reflection(self, game):
+        """
+        Change the movement direction of the bloob when it hits the edge.
+        """
         if self.sprite.x - game.bloobImageSize/2. <= game.leftEdge:
+            print('Menim smer!!!!!!!!!!!!')
+            print(self.color, self.radians, self.sprite.x)
             self.radians = pi - self.radians
         elif self.sprite.x + game.bloobImageSize/2. >= game.rightEdge:
+            print('Menim smer!!!!!!!!!!!!')
+            print(self.color, self.radians, self.sprite.x)
             self.radians = pi - self.radians
 
     def collision(self, neighbors, game):
+        """
+        Check if there's collision with neighboring bloobs.
+        """
         collision = 0
         for b in neighbors:
             d = self.distance(b[0])
@@ -61,11 +80,19 @@ class Bloob(object):
         return collision
 
     def positionUpdate(self, dt):
+        """
+        Update fired bloob's position.
+        """
         self.sprite.x += shot_velocity * cos(self.radians) * dt
         self.sprite.y += shot_velocity * sin(self.radians) * dt
+        x = shot_velocity * cos(self.radians) * dt
+        y = shot_velocity * sin(self.radians) * dt
         return self.sprite.x, self.sprite.y
 
     def selectSameColor(self, neighbors):
+        """
+        Returns set of direct neighboring bloobs of the same color as bloob(self).
+        """
         sameColorNeighbors = set()
         while len(neighbors) > 0:
             b = neighbors.pop()
@@ -74,6 +101,9 @@ class Bloob(object):
         return sameColorNeighbors
 
     def findNeighborPositions(self, line, spot, game):
+        """
+        Returns valid grid positions of direct neighboring bloobs.
+        """
         if line%2 == 0:
             positions = [(line - 1, spot - 1), (line - 1, spot    ),
                          (line,     spot - 1), (line,     spot + 1),
@@ -90,6 +120,9 @@ class Bloob(object):
         return neighborPositions
 
     def findNeighbors(self, neighborPositions, game):
+        """
+        Return set of direct neighboring bloobs.
+        """
         neighbors = set()
         for position in neighborPositions:
             line, spot = position[0], position[1]
@@ -99,7 +132,9 @@ class Bloob(object):
         return neighbors
 
     def bloobsInWall(self, game):
-        # Find all joined bloobs that are connected to wall top:
+        """
+        Finds all joined bloobs connected to wall top.
+        """
         bloobsInWall = []
         colors = []
         I = 0
@@ -110,7 +145,8 @@ class Bloob(object):
                 if bloob.color != 'black' and bloob.color not in colors:
                     colors.append(bloob.color)
                 while I < len(bloobsInWall):
-                    pos = self.findNeighborPositions(bloobsInWall[I][1], bloobsInWall[I][2], game)
+                    pos = self.findNeighborPositions(bloobsInWall[I][1],
+                                                bloobsInWall[I][2], game)
                     neighbors = self.findNeighbors(pos, game)
                     I += 1
                     for N in neighbors:
@@ -120,27 +156,62 @@ class Bloob(object):
                                 colors.append(N[0].color)
         return bloobsInWall, colors
 
+    def deleteBunch(self, sameColorNeighbors, S, game):
+        while sameColorNeighbors:
+            b, l, s = sameColorNeighbors.pop()
+            game.wall.deleteBloobFromWall(b, l, s, game)
+        # Find bloobs in continuous wall:
+        bloobsInWall, game.wall.colors = self.bloobsInWall(game)
+        # Find all bloobs in the wall:
+        allBloobs = set()
+        for l in range(len(game.wall.lines)):
+            for s in range(len(game.wall.lines[l])):
+                if game.wall.lines[l][s] != None:
+                    allBloobs.add((game.wall.lines[l][s], l, s))
+        # Delete bloobs in fallingBloobs:
+        fallingBloobs = allBloobs.difference(bloobsInWall)
+        O = len(fallingBloobs)
+        while fallingBloobs:
+            b, l, s = fallingBloobs.pop()
+            game.wall.deleteBloobFromWall(b, l, s, game)
+        # Delete the shooted bloob:
+        self.sprite.delete()
+        game.movingBloobs.remove(self)
+        game.cannon.enable()
+        game.scoreCount(S, O)
+        if game.wall.emptyWall == False:
+            game.cannon.load(game)
+            danger = -(game.lastShot - 19)/120
+            game.dangerBar.moveDanger(danger, game)
+
     def move(self, dt, game):
-        # Update bloob position:
+        """
+        Update bloob position.
+        """
+        # While bloob is under the window:
         if self.sprite.y < game.upperEdge - 500:
-            # While bloob is under the window:
             self.sprite.position = self.positionUpdate(dt)
         else:
+            # If bloob hits the top of the wall:
+            hitTop = False
+            if self.sprite.y + game.bloobImageSize/2. >= game.wall.top:
+                hitTop = True
+            # If the bloob hits the edge of the wall it reflects back:
+            self.reflection(game)
             # Find neighboring bloobs in the wall:
             line, spot, spot_x, spot_y = self.gridPosition(game)
             neighborPositions = self.findNeighborPositions(line, spot, game)
             neighbors = self.findNeighbors(neighborPositions, game)
             # Check for collision with neighboring bloobs:
             collision = self.collision(neighbors, game)
-            # If bloob hits the top of the wall:
-            hitTop = False
-            if self.sprite.y + game.bloobImageSize/2. >= game.wall.top:
-                hitTop = True
+            # Update bloob coordinates:
+            if not collision and not hitTop:
+                self.sprite.position = self.positionUpdate(dt)
             # When the bloob hits the top or other bloobs in the wall:
-            if collision or hitTop:
+            else:
                 # Check if bloob out of wall:
-                if line == game.maxLines:
-                    game.control.append('gameOver')
+                if line == game.wall.levelMaxLines:
+                    game.gameOver()
                     return
                 # Find bloobs of the same color:
                 sameColorNeighbors = self.selectSameColor(neighbors)
@@ -148,7 +219,8 @@ class Bloob(object):
                 if len(sameColorNeighbors) == 0:
                     game.wall.addBloobToWall(self, line, spot, spot_x, spot_y, game)
                     return
-                # When there are bloobs with the same color:
+                # When there are direct neighboring bloobs with the same color,
+                # find another joined bloobs of the same color:
                 else:
                     checklist = list(sameColorNeighbors)
                     el = 0
@@ -171,40 +243,13 @@ class Bloob(object):
                     # At least two bloobs of same color:
                     else:
                         # Delete bloobs of same color:
-                        while sameColorNeighbors:
-                            b, l, s = sameColorNeighbors.pop()
-                            game.wall.deleteBloobFromWall(b, l, s, game)
-                        # Find bloobs in continuous wall:
-                        bloobsInWall, game.wall.colors = self.bloobsInWall(game)
-                        # Find all bloobs in the wall:
-                        allBloobs = set()
-                        for l in range(len(game.wall.lines)):
-                            for s in range(len(game.wall.lines[l])):
-                                if game.wall.lines[l][s] != None:
-                                    allBloobs.add((game.wall.lines[l][s], l, s))
-                        # Delete bloobs in fallingBloobs:
-                        fallingBloobs = allBloobs.difference(bloobsInWall)
-                        O = len(fallingBloobs)
-                        while fallingBloobs:
-                            b, l, s = fallingBloobs.pop()
-                            game.wall.deleteBloobFromWall(b, l, s, game)
-                        # Delete the shooted bloob:
-                        self.sprite.delete()
-                        game.movingBloobs.remove(self)
-                        game.cannon.enable()
-                        game.scoreCount(S, O)
-                        if game.wall.emptyWall == False:
-                            game.cannon.load(game)
-                            danger = -(game.lastShot - 19)/120
-                            game.dangerBar.moveDanger(danger)
-                    return
-            # If the bloob hits the edge of the wall it reflects back:
-            self.reflection(game)
-            # Update bloob coordinates:
-            self.sprite.position = self.positionUpdate(dt)
+                        self.deleteBunch(sameColorNeighbors, S, game)
 
 
 class Wall(object):
+    """
+    Represents the wall of bloobs.
+    """
     def __init__(self, game):
         self.top = game.upperEdge
         self.levelMaxLines = game.maxLines
@@ -219,22 +264,29 @@ class Wall(object):
                                             group=foreground))
             y -= game.lineHeight
         self.emptyWall = False
-        self.lines = []
-        if game.level == 1:
-            Max = 6
-        else:
-            Max = 7
-        skullNumber = int((game.level - 1)*15/game.level)
         self.images = settings.bloobs
         self.colors = []
-        bloobs = []
         for image in self.images:
             self.colors.append(image[1])
-        # Number of bloobs in the wall
+        # Fill the wall using random bloobs:
+        self.lines = self.fillWallRandomly(game)
+
+    def fillWallRandomly(self, game):
+        """
+        Fills the wall with random bloobs.
+        """
+        # Number of bloobs in the wall:
         B = 0
         for line in range(game.numberOfLines):
             for spot in range(game.NB - line%2):
                 B += 1
+        skullNumber = int((game.level - 1)*15/game.level)
+        # Make a list of B random bloobs:
+        if game.level == 1:
+            Max = 6
+        else:
+            Max = 7
+        bloobs = []
         nbSkull = 0
         while len(bloobs) < B:
             if nbSkull < skullNumber:
@@ -243,28 +295,31 @@ class Wall(object):
                     nbSkull += 1
             else:
                 bloobs.append(Bloob(0, 0, self.images[:6], self.colors[:6]))
-        # Fill the wall randomly:
+        lines = []
         y = self.firstLine_y
         for line in range(game.maxLines):
             nbSpots = game.NB - line%2
             if line < game.numberOfLines:
-                self.lines.append([])
+                lines.append([])
                 x = game.leftEdge + game.bloobImageSize/2.*((line%2) + 1)
-                while len(self.lines[-1]) < nbSpots:
+                while len(lines[-1]) < nbSpots:
                     bloob = random.choice(bloobs)
                     if line == 0:
                         if bloob.color == 'black':
                             continue
                     bloobs.remove(bloob)
-                    bloob.sprite.x = x
-                    bloob.sprite.y = y
-                    self.lines[-1].append(bloob)
+                    bloob.sprite.x, bloob.sprite.y = x, y
+                    lines[-1].append(bloob)
                     x += game.spotWidth
                 y = y - game.lineHeight
             else:
-                self.lines.append([None for i in range(nbSpots)])
+                lines.append([None for i in range(nbSpots)])
+        return lines
 
     def checkEmpty(self):
+        """
+        Checks if the wall is empty.
+        """
         empty = True
         for spot in self.lines[0]:
             if spot != None:
@@ -272,6 +327,9 @@ class Wall(object):
         return empty or False
 
     def deleteBloobFromWall(self, bloob, line, spot, game):
+        """
+        Deletes particular bloob from the wall.
+        """
         game.wall.lines[line][spot] = None
         bloob.sprite.delete()
         self.emptyWall = self.checkEmpty()
@@ -279,7 +337,13 @@ class Wall(object):
         #a az bude dole, zmaze uplne
 
     def addBloobToWall(self, bloob, line, spot, spot_x, spot_y, game):
+        """
+        Adds flying bloob to the wall.
+        """
         game.movingBloobs.remove(bloob)
+        if isinstance(self.lines[line][spot], Bloob):
+            print ("!!!prepisujem bloob vo Wall !!!")
+            print (line, spot, self.lines[line][spot].color, bloob.color)
         self.lines[line][spot] = bloob
         bloob.sprite.x = spot_x
         bloob.sprite.y = spot_y
@@ -287,10 +351,13 @@ class Wall(object):
         game.cannon.enable()
         game.cannon.load(game)
         game.scoreCount(0, 0)
-        game.dangerBar.moveDanger(1)
+        game.dangerBar.moveDanger(1, game)
 
 
 class Cannon(object):
+    """
+    Represents tha cannon.
+    """
     def __init__(self):
         # Set image's anchor point
         image = pyglet.resource.image(settings.cannon)
@@ -302,16 +369,24 @@ class Cannon(object):
         self.bloobs = settings.bloobs[:6]
 
     def load(self, game):
+        """
+        Loads cannon with next bloob.
+        """
         game.bloobsInCannon[0].sprite.position = settings.bloobInCannonPosition
         x, y = settings.nextBloobPosition
         game.bloobsInCannon.append(Bloob(x, y, self.bloobs, game.wall.colors[:6]))
         game.bloobsInCannon[1].sprite.group = top2
 
     def enable(self):
+        """
+        Sets cannon to be able to shoot (after shooted bloob stops flying).
+        """
         self.enabled = True
 
     def shoot(self, game):
-        # Shoot the bloob:
+        """
+        Shoots the bloob.
+        """
         if self.enabled == True:
             self.enabled = False
             game.bloobsUsed += 1
@@ -321,15 +396,19 @@ class Cannon(object):
             shootedBloob.radians = rad
             game.movingBloobs.append(shootedBloob)
             pressed_keys.clear()
+            pressed_mouse.clear()
 
     def tick(self, dt, game):
-        # Moving the cannon with arrow keys:
+        """
+        Moves the cannon with arrow keys or mouse and shoots the bloob.
+        """
+        # Arrow keys:
         delta_rotation = 1
         if 'RIGHT' in pressed_keys:
             self.sprite.rotation += delta_rotation
         if 'LEFT' in pressed_keys:
             self.sprite.rotation -= delta_rotation
-        # Moving the cannon with mouse:
+        # Mouse:
         if game.mouseMovement != None:
             self.sprite.rotation += 1.5*game.mouseMovement
             game.mouseMovement = None
@@ -341,13 +420,19 @@ class Cannon(object):
 
 
 class DangerBar(object):
+    """
+    Represents the danger bar.
+    """
     def __init__(self, game):
         self.image = pyglet.resource.image(settings.tnt)
         self.x, self.y = settings.tntPosition
         self.dy = 36.5
         self.danger = []
 
-    def moveDanger(self, addDanger):
+    def moveDanger(self, addDanger, game):
+        """
+        Adds or deletes danger according to the last shot.
+        """
         danger = len(self.danger)
         y = self.y + danger*self.dy
         for i in range(addDanger):
@@ -376,7 +461,7 @@ class DangerBar(object):
             game.wall.levelMaxLines -= 1
             for spot in game.wall.lines[game.wall.levelMaxLines]:
                 if isinstance(spot, Bloob):
-                    game.control.append('gameOver')
+                    game.gameOver()
                     return
             # Add another wall bar:
             image = pyglet.resource.image(settings.wallBar)
@@ -389,41 +474,119 @@ class DangerBar(object):
             self.danger = []
 
 
+class ScoreWindow(pyglet.window.Window):
+    """
+    Table with 10 highest score.
+    """
+    def __init__(self, playerScore, x, y):
+        image = pyglet.resource.image(settings.highestScore)
+        image.anchor_x = image.width/2.
+        image.anchor_y = image.height/2.
+        self.sprite = pyglet.sprite.Sprite(image, x=x, y=y,
+                                        batch=batch, group=highestScore)
+        self.playerScore = playerScore
+        self.displayTable()
+
+    def displayTable(self):
+        # Read highest score from file:
+        from bisect import insort, bisect_left
+        with open('highest_score.txt', 'r') as f:
+            score = []
+            for line in f:
+                line = line.split()
+                score.append((int(line[1]), int(line[2]), int(line[3]), line[4]))
+        # Display table with highest score:
+        caption = pyglet.text.Label(text='HIGHEST SCORE:', bold=True,
+                    font_size=16, x=340, y=437, color=(0, 0, 0, 250),
+                    anchor_x='center', anchor_y='center', batch=batch,
+                    group=scoreTable)
+        self.scoreTable = [caption]
+        columns = [210, 280, 320, 370, 490]
+        labels = ['rank', 'score', 'level', 'bloobs', 'player']
+        for i in range(5):
+            label = pyglet.text.Label(text=labels[i],
+                    font_size=10, x=columns[i], y=410, color=(0, 0, 0, 250),
+                    anchor_x='right', anchor_y='center', batch=batch,
+                    group=scoreTable)
+            self.scoreTable.append(label)
+        y = 390
+        i = 1
+        for line in score:
+            for j in range(5):
+                if j == 0:
+                    text = '{}.'.format(i)
+                else:
+                    text = '{}'.format(line[j - 1])
+                output = pyglet.text.Label(text=text,
+                    font_size=11, x=columns[j], y=y, color=(0, 0, 0, 250),
+                    anchor_x='right', anchor_y='center', batch=batch,
+                    group=scoreTable)
+                self.scoreTable.append(output)
+            y -= 18
+            i += 1
+        # Calculate player's rank:
+        score.sort()
+        rank = bisect_left(score, self.playerScore)
+        # Save it into file:
+        if rank > 0:
+            name = 'Jarka' #..........ask for name
+            playerScore = self.playerScore[:-1] + (name,)
+            insort(score, playerScore)
+            score.sort(reverse=True)
+            with open('highest_score.txt', 'w') as f:
+                i = 1
+                for line in score[:10]:
+                    f.write('{0:>2}. {1:>7}{2:>5}{3:>7}{4:>16}\n'.format(i, *line))
+                    i += 1
+
+
 class Game(object):
+    """
+    Represents game.
+    """
     def __init__(self):
-        self.control = []
-        self.window = pyglet.window.Window(800, 600)
+        self.control = None
+        self.window = pyglet.window.Window(800, 600, caption='BLOOBS')
         self.bloobImageSize = 36
         self.NB = 17    # number of bloobs' spots in line 0, 2, 4, ...
         self.lineHeight = self.bloobImageSize - 1    # Height of bloobs line
         self.spotWidth = self.bloobImageSize + 1
-        self.upperEdge = self.window.height - 2
         self.leftEdge = 1
         self.rightEdge = self.leftEdge + (self.NB - 1)*self.spotWidth + self.bloobImageSize
         self.window.set_mouse_visible(False)
         self.window.push_handlers(keys)
         self.mouseMovement = None
-        self.dangerBar = DangerBar(self)
         self.cannon = Cannon()
-        self.movingBloobs = []
-        self.initialSettings()
+        self.newGameSettings()
         self.showLabels()
 
-    def initialSettings(self):
+    def newGameSettings(self):
+        """
+        Sets initial settings.
+        """
         self.level = 1
         self.score = 0
         self.bloobsUsed = 0
         self.lastShot = 0
+        self.dangerBar = DangerBar(self)
+        self.upperEdge = self.window.height - 2
         self.maxLines = 14
         self.numberOfLines = 9  # 9
+        self.movingBloobs = []
         self.start()
 
     def deleteLabel(self, dt, label):
+        """
+        Deletes label.
+        """
         label.delete()
 
-    def nextLevel(self):
+    def nextLevelSettings(self):
+        """
+        Sets the options for next level.
+        """
         self.bonusLabel = pyglet.text.Label(text='Fullscreen bonus = 1000',
-                            font_size=28, x=350, y=300, color=(0, 0, 0, 200),
+                            font_size=34, x=300, y=400, color=(0, 0, 0, 200),
                             anchor_x='center', anchor_y='center', batch=batch)
         pyglet.clock.schedule_once(self.deleteLabel, 2, self.bonusLabel)
         self.level += 1
@@ -436,6 +599,9 @@ class Game(object):
         self.start()
 
     def start(self):
+        """
+        Starts the game.
+        """
         self.wall = Wall(self)
         x1, y1 = settings.bloobInCannonPosition
         x2, y2 = settings.nextBloobPosition
@@ -445,6 +611,9 @@ class Game(object):
             bloob.sprite.group = top2
 
     def showLabels(self):
+        """
+        Shows labels.
+        """
         self.bloobsUsedLabel = pyglet.text.Label(text=str(self.bloobsUsed),
                             font_size=24, x=775, y=233, color=(0, 0, 0, 200),
                             anchor_x='right', anchor_y='center', batch=batch)
@@ -459,6 +628,9 @@ class Game(object):
                             anchor_x='center', anchor_y='center', batch=batch)
 
     def scoreCount(self, S, O):
+        """
+        Counts score.
+        """
         if S > 1:
             self.lastShot = 10 + (S - 2)*(S + 4) + 10*O**2
         else:
@@ -468,17 +640,57 @@ class Game(object):
         self.scoreLabel.text = str(self.score)
 
     def gameOver(self):
-        self.bonusLabel = pyglet.text.Label(text='GAME OVER!!!',
-                            font_size=28, x=350, y=300, color=(0, 0, 0, 200),
-                            anchor_x='center', anchor_y='center', batch=batch)
-        pyglet.clock.unschedule(self.update)
+        """
+        Ends the game.
+        """
+        self.control ='gameOver'
+        self.gameOverLabels = []
+        gameOver = pyglet.text.Label(text='GAME OVER!!!', bold=True,
+                    font_size=34, x=340, y=550, color=(0, 0, 0, 250),
+                    anchor_x='center', anchor_y='center', batch=batch,
+                    group=highestScore)
+        yourScore = pyglet.text.Label(text='Your score: ' + str(self.score),
+                    bold=True, font_size=28, x=340, y=480,
+                    color=(0, 0, 0, 250), anchor_x='center',
+                    anchor_y='center', batch=batch, group=highestScore)
+        newGame = pyglet.text.Label(text='Press space to restart.',
+                    font_size=28, x=340, y=140, color=(0, 0, 0, 250),
+                    anchor_x='center', anchor_y='center', batch=batch,
+                    group=highestScore)
+        self.gameOverLabels = [gameOver, yourScore, newGame]
+        playerScore = (self.score, self.level, self.bloobsUsed, None)
+        self.highestScore = ScoreWindow(playerScore, 340, 330)
+
+    def newGame(self):
+        """
+        Play new game.
+        """
+        for label in self.gameOverLabels:
+            label.delete()
+        self.highestScore.sprite.delete()
+        while self.highestScore.scoreTable:
+            label = self.highestScore.scoreTable.pop()
+            label.delete()
+        self.control = None
+        pressed_keys.clear()
+        self.cannon.enable()
+        self.newGameSettings()
+        self.levelLabel.text = 'level: '+ str(self.level)
+        self.bloobsUsedLabel.text = str(self.bloobsUsed)
+        self.lastShotLabel.text = str(self.lastShot)
+        self.scoreLabel.text = str(self.score)
 
     def update(self, dt):
-        if self.wall.emptyWall == True:
-            self.nextLevel()
+        """
+        Updates the game.
+        """
+        if self.control == 'gameOver':
+            if 'NEW_GAME' in pressed_keys:
+                self.newGame()
             return
-        if 'gameOver' in self.control:
-            self.gameOver()
+        if self.wall.emptyWall == True:
+            self.nextLevelSettings()
+            return
         # Update the positions of all objects:
         self.cannon.tick(dt, self)
         for b in self.movingBloobs:
@@ -491,7 +703,8 @@ keys = key.KeyStateHandler()
 pressed_keys = set()
 key_control = {key.UP:    'SHOOT',
                key.RIGHT: 'RIGHT',
-               key.LEFT:  'LEFT'}
+               key.LEFT:  'LEFT',
+               key.SPACE: 'NEW_GAME'}
 pressed_mouse = set()
 mouse_control = {mouse.LEFT:    'SHOOT',
                  mouse.MIDDLE:  'SHOOT'}
@@ -499,16 +712,18 @@ mouse_control = {mouse.LEFT:    'SHOOT',
 # Ordered groups
 batch = pyglet.graphics.Batch()
 background = pyglet.graphics.OrderedGroup(0)    # background
-foreground = pyglet.graphics.OrderedGroup(0.5)  # wall bloobs
-top1       = pyglet.graphics.OrderedGroup(0.8)  # cannon
-top2       = pyglet.graphics.OrderedGroup(1)    # bloobes in cannon
+foreground = pyglet.graphics.OrderedGroup(0.1)  # wall bloobs
+top1       = pyglet.graphics.OrderedGroup(0.2)  # cannon
+top2       = pyglet.graphics.OrderedGroup(0.3)  # bloobs in cannon
+highestScore = pyglet.graphics.OrderedGroup(0.4)  # window with highest score
+scoreTable = pyglet.graphics.OrderedGroup(0.5)  # window with highest score-text
+
 
 
 img = pyglet.resource.image(settings.background)
 Background = pyglet.sprite.Sprite(img=img, batch=batch, group=background)
 game = Game()
 shot_velocity = settings.velocity
-#pyglet.clock.schedule_interval(game.update, 1./50)
 pyglet.clock.schedule(game.update)
 
 

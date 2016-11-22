@@ -17,10 +17,11 @@ bloobs      = [('blue.png', 'blue'),
                ('purple.png', 'purple'),
                ('pink.png', 'pink'),
                ('black.png', 'black')]
+highestScore = 'highestScore.png'
 
 cannonPosition        = (315, 50)
 bloobInCannonPosition = (315, 52)
 nextBloobPosition     = (562, 47)
-tntPosition           = (649, 298)   
+tntPosition           = (649, 298)
 
 velocity = 600
