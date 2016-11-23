@@ -343,7 +343,8 @@ class Wall(object):
         game.movingBloobs.remove(bloob)
         if isinstance(self.lines[line][spot], Bloob):
             print ("!!!prepisujem bloob vo Wall !!!")
-            print (line, spot, self.lines[line][spot].color, bloob.color)
+            print (line, spot, self.lines[line][spot].color, bloob.color,
+                    bloob.sprite.x, bloob.sprite.y, spot_x, spot_y)
         self.lines[line][spot] = bloob
         bloob.sprite.x = spot_x
         bloob.sprite.y = spot_y
@@ -474,70 +475,99 @@ class DangerBar(object):
             self.danger = []
 
 
-class ScoreWindow(pyglet.window.Window):
+class ScoreWindow(object):
     """
     Table with 10 highest score.
     """
-    def __init__(self, playerScore, x, y):
+    def __init__(self, game, x, y):
         image = pyglet.resource.image(settings.highestScore)
         image.anchor_x = image.width/2.
         image.anchor_y = image.height/2.
         self.sprite = pyglet.sprite.Sprite(image, x=x, y=y,
                                         batch=batch, group=highestScore)
-        self.playerScore = playerScore
-        self.displayTable()
+        self.playerScore = (game.score, game.level, game.bloobsUsed, '')
+        self.displayTable(game)
 
-    def displayTable(self):
-        # Read highest score from file:
-        from bisect import insort, bisect_left
+    def displayTable(self, game):
+        """
+        Read highest score from file, display it and if player had one of
+        10 best scores revise table.
+        """
         with open('highest_score.txt', 'r') as f:
-            score = []
+            self.score = []
             for line in f:
                 line = line.split()
-                score.append((int(line[1]), int(line[2]), int(line[3]), line[4]))
-        # Display table with highest score:
+                self.score.append((int(line[1]), int(line[2]), int(line[3]), line[4]))
+        self.rank = self.findRank(game)
+        self.showTable()
+
+    def findRank(self, game):
+        """
+        Calculate player's rank.
+        """
+        from bisect import bisect_left
+        self.score.sort()
+        return len(self.score) - bisect_left(self.score, self.playerScore)
+
+    def showTable(self):
+        """
+        Display table with highest score.
+        """
         caption = pyglet.text.Label(text='HIGHEST SCORE:', bold=True,
-                    font_size=16, x=340, y=437, color=(0, 0, 0, 250),
-                    anchor_x='center', anchor_y='center', batch=batch,
-                    group=scoreTable)
+                    font_size=16, x=340, y=437, anchor_x='center',
+                    anchor_y='center', batch=batch, group=scoreTable)
         self.scoreTable = [caption]
         columns = [210, 280, 320, 370, 490]
         labels = ['rank', 'score', 'level', 'bloobs', 'player']
         for i in range(5):
             label = pyglet.text.Label(text=labels[i],
-                    font_size=10, x=columns[i], y=410, color=(0, 0, 0, 250),
-                    anchor_x='right', anchor_y='center', batch=batch,
-                    group=scoreTable)
+                    font_size=10, x=columns[i], y=410, anchor_x='right',
+                    anchor_y='center', batch=batch, group=scoreTable)
             self.scoreTable.append(label)
+        # Sort ranking in decreasing order:
+        self.score.sort(reverse=True)
+        # Insert actual player's score:
+        if self.rank < 10:
+            self.score[self.rank:self.rank] = [self.playerScore]
+            game.writeName = True
         y = 390
         i = 1
-        for line in score:
+        for line in self.score[:10]:
             for j in range(5):
                 if j == 0:
                     text = '{}.'.format(i)
                 else:
                     text = '{}'.format(line[j - 1])
                 output = pyglet.text.Label(text=text,
-                    font_size=11, x=columns[j], y=y, color=(0, 0, 0, 250),
-                    anchor_x='right', anchor_y='center', batch=batch,
-                    group=scoreTable)
+                    font_size=11, x=columns[j], y=y, anchor_x='right',
+                    anchor_y='center', batch=batch, group=scoreTable)
                 self.scoreTable.append(output)
             y -= 18
             i += 1
-        # Calculate player's rank:
-        score.sort()
-        rank = bisect_left(score, self.playerScore)
-        # Save it into file:
-        if rank > 0:
-            name = 'Jarka' #..........ask for name
-            playerScore = self.playerScore[:-1] + (name,)
-            insort(score, playerScore)
-            score.sort(reverse=True)
-            with open('highest_score.txt', 'w') as f:
-                i = 1
-                for line in score[:10]:
-                    f.write('{0:>2}. {1:>7}{2:>5}{3:>7}{4:>16}\n'.format(i, *line))
-                    i += 1
+        if self.rank < 10:
+            self.nameLabel = self.scoreTable[6 + 5*self.rank + 4]
+            index = self.scoreTable.index(self.nameLabel)
+            y = self.scoreTable[index].y + 9
+            text = '<--- write your name and\n          press Enter'
+            self.help = pyglet.text.Label(text=text, width=200,
+                    font_size=12, x=500, y=y, anchor_x='left',
+                    anchor_y='top', batch=batch, group=scoreTable,
+                    multiline=True)
+
+    def saveScore(self):
+        """
+        Save new ranking into file.
+        """
+        self.help.delete()
+        name = str(self.nameLabel.text)
+        if name == '':
+            name = 'anonymous'
+        self.score[self.rank] = self.score[self.rank][:-1] + (name,)
+        with open('highest_score.txt', 'w') as f:
+            i = 1
+            for line in self.score[:10]:
+                f.write('{0:>2}. {1:>7}{2:>5}{3:>7}{4:>16}\n'.format(i, *line))
+                i += 1
 
 
 class Game(object):
@@ -545,6 +575,7 @@ class Game(object):
     Represents game.
     """
     def __init__(self):
+        self.writeName = False
         self.control = None
         self.window = pyglet.window.Window(800, 600, caption='BLOOBS')
         self.bloobImageSize = 36
@@ -650,16 +681,24 @@ class Game(object):
                     anchor_x='center', anchor_y='center', batch=batch,
                     group=highestScore)
         yourScore = pyglet.text.Label(text='Your score: ' + str(self.score),
-                    bold=True, font_size=28, x=340, y=480,
+                    bold=True, font_size=24, x=340, y=500,
                     color=(0, 0, 0, 250), anchor_x='center',
                     anchor_y='center', batch=batch, group=highestScore)
-        newGame = pyglet.text.Label(text='Press space to restart.',
-                    font_size=28, x=340, y=140, color=(0, 0, 0, 250),
+        self.gameOverLabels = [gameOver, yourScore]
+        self.highestScore = ScoreWindow(self, 340, 330)
+        if self.writeName == False:
+            self.gameOverLabels.append(pyglet.text.Label(text='Press space to restart.',
+                    font_size=16, x=340, y=190, color=(0, 0, 0, 250),
                     anchor_x='center', anchor_y='center', batch=batch,
-                    group=highestScore)
-        self.gameOverLabels = [gameOver, yourScore, newGame]
-        playerScore = (self.score, self.level, self.bloobsUsed, None)
-        self.highestScore = ScoreWindow(playerScore, 340, 330)
+                    group=highestScore))
+
+    def restartLabel(self):
+        for label in self.gameOverLabels:
+            label.delete()
+        self.gameOverLabels = [pyglet.text.Label(text='Press space to restart.',
+                    font_size=16, x=340, y=190, color=(0, 0, 0, 250),
+                    anchor_x='center', anchor_y='center', batch=batch,
+                    group=highestScore)]
 
     def newGame(self):
         """
@@ -679,6 +718,16 @@ class Game(object):
         self.bloobsUsedLabel.text = str(self.bloobsUsed)
         self.lastShotLabel.text = str(self.lastShot)
         self.scoreLabel.text = str(self.score)
+
+    def updateName(self, text):
+        if self.writeName:
+            if text == 'DELETE':
+                self.highestScore.nameLabel.text = self.highestScore.nameLabel.text[:-1]
+            else:
+                self.highestScore.nameLabel.text += text
+
+    def saveName(self):
+        self.highestScore.saveScore()
 
     def update(self, dt):
         """
@@ -718,8 +767,6 @@ top2       = pyglet.graphics.OrderedGroup(0.3)  # bloobs in cannon
 highestScore = pyglet.graphics.OrderedGroup(0.4)  # window with highest score
 scoreTable = pyglet.graphics.OrderedGroup(0.5)  # window with highest score-text
 
-
-
 img = pyglet.resource.image(settings.background)
 Background = pyglet.sprite.Sprite(img=img, batch=batch, group=background)
 game = Game()
@@ -728,12 +775,23 @@ pyglet.clock.schedule(game.update)
 
 
 @game.window.event
+def on_text(text):
+    game.updateName(text)
+
+@game.window.event
 def on_draw():
     game.window.clear()
     batch.draw()
 
 @game.window.event
 def on_key_press(symbol, modifiers):
+    if game.writeName == True:
+        if symbol == key.BACKSPACE:
+            game.updateName('DELETE')
+        elif symbol == key.ENTER:
+            game.saveName()
+            game.writeName = False
+            game.restartLabel()
     if symbol in key_control:
         pressed_keys.add(key_control[symbol])
 
