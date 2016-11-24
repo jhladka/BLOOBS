@@ -59,12 +59,10 @@ class Bloob(object):
         Change the movement direction of the bloob when it hits the edge.
         """
         if self.sprite.x - game.bloobImageSize/2. <= game.leftEdge:
-            print('Menim smer!!!!!!!!!!!!')
-            print(self.color, self.radians, self.sprite.x)
+            self.sprite.x = game.leftEdge + game.bloobImageSize/2.
             self.radians = pi - self.radians
         elif self.sprite.x + game.bloobImageSize/2. >= game.rightEdge:
-            print('Menim smer!!!!!!!!!!!!')
-            print(self.color, self.radians, self.sprite.x)
+            self.sprite.x = game.rightEdge - game.bloobImageSize/2.
             self.radians = pi - self.radians
 
     def collision(self, neighbors, game):
@@ -548,11 +546,11 @@ class ScoreWindow(object):
             self.nameLabel = self.scoreTable[6 + 5*self.rank + 4]
             index = self.scoreTable.index(self.nameLabel)
             y = self.scoreTable[index].y + 9
-            text = '<--- write your name and\n          press Enter'
+            text = '<-- write your name\n    and press Enter'
             self.help = pyglet.text.Label(text=text, width=200,
-                    font_size=12, x=500, y=y, anchor_x='left',
-                    anchor_y='top', batch=batch, group=scoreTable,
-                    multiline=True)
+                    color=(0, 0, 0, 250), multiline=True, bold=True,
+                    font_size=11, x=500, y=y, anchor_x='left',
+                    anchor_y='top', batch=batch, group=scoreTable)
 
     def saveScore(self):
         """
@@ -640,6 +638,7 @@ class Game(object):
                                Bloob(x2, y2, self.wall.images[:6], self.wall.colors[:6])]
         for bloob in self.bloobsInCannon:
             bloob.sprite.group = top2
+        pyglet.clock.schedule(self.update)
 
     def showLabels(self):
         """
@@ -674,6 +673,7 @@ class Game(object):
         """
         Ends the game.
         """
+        pyglet.clock.unschedule(self.update)
         self.control ='gameOver'
         self.gameOverLabels = []
         gameOver = pyglet.text.Label(text='GAME OVER!!!', bold=True,
@@ -704,13 +704,13 @@ class Game(object):
         """
         Play new game.
         """
+        self.control = None
         for label in self.gameOverLabels:
             label.delete()
         self.highestScore.sprite.delete()
         while self.highestScore.scoreTable:
             label = self.highestScore.scoreTable.pop()
             label.delete()
-        self.control = None
         pressed_keys.clear()
         self.cannon.enable()
         self.newGameSettings()
@@ -733,10 +733,6 @@ class Game(object):
         """
         Updates the game.
         """
-        if self.control == 'gameOver':
-            if 'NEW_GAME' in pressed_keys:
-                self.newGame()
-            return
         if self.wall.emptyWall == True:
             self.nextLevelSettings()
             return
@@ -752,8 +748,7 @@ keys = key.KeyStateHandler()
 pressed_keys = set()
 key_control = {key.UP:    'SHOOT',
                key.RIGHT: 'RIGHT',
-               key.LEFT:  'LEFT',
-               key.SPACE: 'NEW_GAME'}
+               key.LEFT:  'LEFT'}
 pressed_mouse = set()
 mouse_control = {mouse.LEFT:    'SHOOT',
                  mouse.MIDDLE:  'SHOOT'}
@@ -771,7 +766,7 @@ img = pyglet.resource.image(settings.background)
 Background = pyglet.sprite.Sprite(img=img, batch=batch, group=background)
 game = Game()
 shot_velocity = settings.velocity
-pyglet.clock.schedule(game.update)
+#pyglet.clock.schedule(game.update)
 
 
 @game.window.event
@@ -792,7 +787,10 @@ def on_key_press(symbol, modifiers):
             game.saveName()
             game.writeName = False
             game.restartLabel()
-    if symbol in key_control:
+    elif game.control == 'gameOver':
+        if symbol == key.SPACE:
+            game.newGame()
+    elif symbol in key_control:
         pressed_keys.add(key_control[symbol])
 
 @game.window.event
