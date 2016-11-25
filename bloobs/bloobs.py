@@ -211,7 +211,7 @@ class Bloob(object):
                     print "Skoro som to prepisal!"
                     x = self.sprite.x - shot_velocity*dt*cos(self.radians)
                     y = self.sprite.y - shot_velocity*dt*sin(self.radians)
-                    line, spot, spot_x, spot_y = game.wall.gridPosition(x, y, game)
+                    line, spot, spot_x, spot_y = self.gridPosition(x, y, game)
                 # Check if bloob out of wall:
                 if line == game.wall.levelMaxLines:
                     game.gameOver()
