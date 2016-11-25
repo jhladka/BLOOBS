@@ -38,22 +38,6 @@ class Bloob(object):
         dy = self.sprite.y - another_bloob.sprite.y
         return sqrt(dx**2 + dy**2)
 
-    def gridPosition(self, game):
-        """
-        Calculates bloob's position in wall grid according to its current position.
-        """
-        y = game.wall.top - self.sprite.y
-        line = int(y)/game.lineHeight
-        spot_y = game.wall.top - (line + 1/2.)*game.lineHeight
-        x = self.sprite.x - game.leftEdge - game.spotWidth/2.*(line%2)
-        spot = int(x)/game.spotWidth
-        if spot == -1:
-            spot = 0
-        if spot == game.NB - line%2:
-            spot -= 1
-        spot_x = game.leftEdge + game.spotWidth/2.*(2*spot + 1 + (line%2))
-        return line, spot, spot_x, spot_y
-
     def reflection(self, game):
         """
         Change the movement direction of the bloob when it hits the edge.
@@ -81,10 +65,9 @@ class Bloob(object):
         """
         Update fired bloob's position.
         """
-        self.sprite.x += shot_velocity * cos(self.radians) * dt
-        self.sprite.y += shot_velocity * sin(self.radians) * dt
-        x = shot_velocity * cos(self.radians) * dt
-        y = shot_velocity * sin(self.radians) * dt
+        trajectory = shot_velocity * dt
+        self.sprite.x += trajectory * cos(self.radians)
+        self.sprite.y += trajectory * sin(self.radians)
         return self.sprite.x, self.sprite.y
 
     def selectSameColor(self, neighbors):
@@ -98,18 +81,33 @@ class Bloob(object):
                 sameColorNeighbors.add(b)
         return sameColorNeighbors
 
+    def gridPosition(self, x, y, game):
+        """
+        Calculates bloob's position in wall grid according to its current position.
+        """
+        Y = game.wall.top - y
+        line = int(Y)/game.lineHeight
+        spot_y = game.wall.top - (line + 1/2.)*game.lineHeight
+        remainder = line%2
+        X = x - game.leftEdge - game.spotWidth/2.*remainder
+        spot = int(X)/game.spotWidth
+        if spot == -1:
+            spot = 0
+        if spot == game.NB - remainder:
+            spot -= 1
+        spot_x = game.leftEdge + game.spotWidth/2.*(2*spot + 1 + remainder)
+        return line, spot, spot_x, spot_y
+
     def findNeighborPositions(self, line, spot, game):
         """
         Returns valid grid positions of direct neighboring bloobs.
         """
+        k, l, m = line - 1, line, line + 1
+        r, s, t = spot - 1, spot, spot + 1
         if line%2 == 0:
-            positions = [(line - 1, spot - 1), (line - 1, spot    ),
-                         (line,     spot - 1), (line,     spot + 1),
-                         (line + 1, spot - 1), (line + 1, spot    )]
+            positions = [(k, r), (k, s), (l, r), (l, t), (m, r), (m, s)]
         else:
-            positions = [(line - 1, spot    ), (line - 1, spot + 1),
-                         (line,     spot - 1), (line,     spot + 1),
-                         (line + 1, spot    ), (line + 1, spot + 1)]
+            positions = [(k, s), (k, t), (l, r), (l, t), (m, s), (m, t)]
         neighborPositions = []
         for pos in positions:
             if pos[0] >= 0 and pos[0] < game.maxLines:
@@ -197,7 +195,8 @@ class Bloob(object):
             # If the bloob hits the edge of the wall it reflects back:
             self.reflection(game)
             # Find neighboring bloobs in the wall:
-            line, spot, spot_x, spot_y = self.gridPosition(game)
+            x, y = self.sprite.x, self.sprite.y
+            line, spot, spot_x, spot_y = self.gridPosition(x, y, game)
             neighborPositions = self.findNeighborPositions(line, spot, game)
             neighbors = self.findNeighbors(neighborPositions, game)
             # Check for collision with neighboring bloobs:
@@ -207,6 +206,12 @@ class Bloob(object):
                 self.sprite.position = self.positionUpdate(dt)
             # When the bloob hits the top or other bloobs in the wall:
             else:
+                # Check if the spot if empty:
+                if game.wall.lines[line][spot] != None:
+                    print "Skoro som to prepisal!"
+                    x = self.sprite.x - shot_velocity*dt*cos(self.radians)
+                    y = self.sprite.y - shot_velocity*dt*sin(self.radians)
+                    line, spot, spot_x, spot_y = game.wall.gridPosition(x, y, game)
                 # Check if bloob out of wall:
                 if line == game.wall.levelMaxLines:
                     game.gameOver()
@@ -331,8 +336,6 @@ class Wall(object):
         game.wall.lines[line][spot] = None
         bloob.sprite.delete()
         self.emptyWall = self.checkEmpty()
-        #posle signal ze ma spadnut, vymaze ho z self.lines
-        #a az bude dole, zmaze uplne
 
     def addBloobToWall(self, bloob, line, spot, spot_x, spot_y, game):
         """
@@ -401,16 +404,16 @@ class Cannon(object):
         """
         Moves the cannon with arrow keys or mouse and shoots the bloob.
         """
-        # Arrow keys:
         delta_rotation = 1
-        if 'RIGHT' in pressed_keys:
-            self.sprite.rotation += delta_rotation
-        if 'LEFT' in pressed_keys:
-            self.sprite.rotation -= delta_rotation
         # Mouse:
         if game.mouseMovement != None:
             self.sprite.rotation += 1.5*game.mouseMovement
             game.mouseMovement = None
+        # Arrow keys:
+        if 'RIGHT' in pressed_keys:
+            self.sprite.rotation += delta_rotation
+        elif 'LEFT' in pressed_keys:
+            self.sprite.rotation -= delta_rotation
         self.sprite.rotation = min(self.sprite.rotation, 75)
         self.sprite.rotation = max(self.sprite.rotation, -75)
         # Shooting the bloob from cannon:
@@ -491,7 +494,7 @@ class ScoreWindow(object):
         Read highest score from file, display it and if player had one of
         10 best scores revise table.
         """
-        with open('highest_score.txt', 'r') as f:
+        with open('.highest_score.txt', 'r') as f:
             self.score = []
             for line in f:
                 line = line.split()
@@ -546,7 +549,7 @@ class ScoreWindow(object):
             self.nameLabel = self.scoreTable[6 + 5*self.rank + 4]
             index = self.scoreTable.index(self.nameLabel)
             y = self.scoreTable[index].y + 9
-            text = '<-- write your name\n    and press Enter'
+            text = '<-- write your name\n      and press Enter'
             self.help = pyglet.text.Label(text=text, width=200,
                     color=(0, 0, 0, 250), multiline=True, bold=True,
                     font_size=11, x=500, y=y, anchor_x='left',
@@ -561,7 +564,7 @@ class ScoreWindow(object):
         if name == '':
             name = 'anonymous'
         self.score[self.rank] = self.score[self.rank][:-1] + (name,)
-        with open('highest_score.txt', 'w') as f:
+        with open('.highest_score.txt', 'w') as f:
             i = 1
             for line in self.score[:10]:
                 f.write('{0:>2}. {1:>7}{2:>5}{3:>7}{4:>16}\n'.format(i, *line))
@@ -575,7 +578,7 @@ class Game(object):
     def __init__(self):
         self.writeName = False
         self.control = None
-        self.window = pyglet.window.Window(800, 600, caption='BLOOBS')
+        self.window = pyglet.window.Window(800, 600, caption='BLOOBS', vsync=0)
         self.bloobImageSize = 36
         self.NB = 17    # number of bloobs' spots in line 0, 2, 4, ...
         self.lineHeight = self.bloobImageSize - 1    # Height of bloobs line
@@ -734,6 +737,7 @@ class Game(object):
         Updates the game.
         """
         if self.wall.emptyWall == True:
+            pyglet.clock.unschedule(self.update)
             self.nextLevelSettings()
             return
         # Update the positions of all objects:
