@@ -206,12 +206,6 @@ class Bloob(object):
                 self.sprite.position = self.positionUpdate(dt)
             # When the bloob hits the top or other bloobs in the wall:
             else:
-                # Check if the spot if empty:
-                if game.wall.lines[line][spot] != None:
-                    print "Skoro som to prepisal!"
-                    x = self.sprite.x - shot_velocity*dt*cos(self.radians)
-                    y = self.sprite.y - shot_velocity*dt*sin(self.radians)
-                    line, spot, spot_x, spot_y = self.gridPosition(x, y, game)
                 # Check if bloob out of wall:
                 if line == game.wall.levelMaxLines:
                     game.gameOver()
@@ -342,10 +336,6 @@ class Wall(object):
         Adds flying bloob to the wall.
         """
         game.movingBloobs.remove(bloob)
-        if isinstance(self.lines[line][spot], Bloob):
-            print ("!!!prepisujem bloob vo Wall !!!")
-            print (line, spot, self.lines[line][spot].color, bloob.color,
-                    bloob.sprite.x, bloob.sprite.y, spot_x, spot_y)
         self.lines[line][spot] = bloob
         bloob.sprite.x = spot_x
         bloob.sprite.y = spot_y
@@ -500,7 +490,7 @@ class ScoreWindow(object):
                 line = line.split()
                 self.score.append((int(line[1]), int(line[2]), int(line[3]), line[4]))
         self.rank = self.findRank(game)
-        self.showTable()
+        self.showTable(game)
 
     def findRank(self, game):
         """
@@ -510,7 +500,7 @@ class ScoreWindow(object):
         self.score.sort()
         return len(self.score) - bisect_left(self.score, self.playerScore)
 
-    def showTable(self):
+    def showTable(self, game):
         """
         Display table with highest score.
         """
@@ -520,6 +510,7 @@ class ScoreWindow(object):
         self.scoreTable = [caption]
         columns = [210, 280, 320, 370, 490]
         labels = ['rank', 'score', 'level', 'bloobs', 'player']
+
         for i in range(5):
             label = pyglet.text.Label(text=labels[i],
                     font_size=10, x=columns[i], y=410, anchor_x='right',
@@ -531,6 +522,7 @@ class ScoreWindow(object):
         if self.rank < 10:
             self.score[self.rank:self.rank] = [self.playerScore]
             game.writeName = True
+            game.helpLabel.text = 'Write your name and press Enter'
         y = 390
         i = 1
         for line in self.score[:10]:
@@ -547,19 +539,11 @@ class ScoreWindow(object):
             i += 1
         if self.rank < 10:
             self.nameLabel = self.scoreTable[6 + 5*self.rank + 4]
-            index = self.scoreTable.index(self.nameLabel)
-            y = self.scoreTable[index].y + 9
-            text = '<-- write your name\n      and press Enter'
-            self.help = pyglet.text.Label(text=text, width=200,
-                    color=(0, 0, 0, 250), multiline=True, bold=True,
-                    font_size=11, x=500, y=y, anchor_x='left',
-                    anchor_y='top', batch=batch, group=scoreTable)
 
     def saveScore(self):
         """
         Save new ranking into file.
         """
-        self.help.delete()
         name = str(self.nameLabel.text)
         if name == '':
             name = 'anonymous'
@@ -679,29 +663,21 @@ class Game(object):
         pyglet.clock.unschedule(self.update)
         self.control ='gameOver'
         self.gameOverLabels = []
-        gameOver = pyglet.text.Label(text='GAME OVER!!!', bold=True,
-                    font_size=34, x=340, y=550, color=(0, 0, 0, 250),
+        self.gameOverLabel = pyglet.text.Label(text='GAME OVER!!!', bold=True,
+                    font_size=34, x=340, y=550, color=(0, 0, 50, 250),
                     anchor_x='center', anchor_y='center', batch=batch,
                     group=highestScore)
-        yourScore = pyglet.text.Label(text='Your score: ' + str(self.score),
+        self.yourScore = pyglet.text.Label(text='Your score: ' + str(self.score),
                     bold=True, font_size=24, x=340, y=500,
-                    color=(0, 0, 0, 250), anchor_x='center',
+                    color=(0, 50, 0, 250), anchor_x='center',
                     anchor_y='center', batch=batch, group=highestScore)
-        self.gameOverLabels = [gameOver, yourScore]
+        self.helpLabel = pyglet.text.Label(text='', color=(50, 0, 0, 250),
+                    bold=True, font_size=16, x=340, y=190, anchor_x='center',
+                    anchor_y='center', batch=batch, group=scoreTable)
+        self.gameOverLabels = [self.gameOverLabel, self.yourScore, self.helpLabel]
         self.highestScore = ScoreWindow(self, 340, 330)
         if self.writeName == False:
-            self.gameOverLabels.append(pyglet.text.Label(text='Press space to restart.',
-                    font_size=16, x=340, y=190, color=(0, 0, 0, 250),
-                    anchor_x='center', anchor_y='center', batch=batch,
-                    group=highestScore))
-
-    def restartLabel(self):
-        for label in self.gameOverLabels:
-            label.delete()
-        self.gameOverLabels = [pyglet.text.Label(text='Press space to restart.',
-                    font_size=16, x=340, y=190, color=(0, 0, 0, 250),
-                    anchor_x='center', anchor_y='center', batch=batch,
-                    group=highestScore)]
+            self.helpLabel.text = 'Press space to restart.'
 
     def newGame(self):
         """
@@ -730,6 +706,7 @@ class Game(object):
                 self.highestScore.nameLabel.text += text
 
     def saveName(self):
+        self.helpLabel.delete()
         self.highestScore.saveScore()
 
     def update(self, dt):
@@ -741,6 +718,9 @@ class Game(object):
             self.nextLevelSettings()
             return
         # Update the positions of all objects:
+        if dt > 18./shot_velocity:  # 18 = bloobImageSize/2
+            #print dt
+            dt = 0.95*18./shot_velocity
         self.cannon.tick(dt, self)
         for b in self.movingBloobs:
             b.move(dt, self)
@@ -770,8 +750,8 @@ img = pyglet.resource.image(settings.background)
 Background = pyglet.sprite.Sprite(img=img, batch=batch, group=background)
 game = Game()
 shot_velocity = settings.velocity
-#pyglet.clock.schedule(game.update)
 
+fps_display = pyglet.clock.ClockDisplay()
 
 @game.window.event
 def on_text(text):
@@ -781,6 +761,7 @@ def on_text(text):
 def on_draw():
     game.window.clear()
     batch.draw()
+    #fps_display.draw()
 
 @game.window.event
 def on_key_press(symbol, modifiers):
@@ -790,7 +771,7 @@ def on_key_press(symbol, modifiers):
         elif symbol == key.ENTER:
             game.saveName()
             game.writeName = False
-            game.restartLabel()
+            game.helpLabel.text = 'Press space to restart.'
     elif game.control == 'gameOver':
         if symbol == key.SPACE:
             game.newGame()
