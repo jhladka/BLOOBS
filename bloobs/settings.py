@@ -25,3 +25,10 @@ nextBloobPosition     = (562, 47)
 tntPosition           = (649, 298)
 
 velocity = 600
+
+layer_background    = pyglet.graphics.OrderedGroup(0)    # background
+layer_wall          = pyglet.graphics.OrderedGroup(0.1)  # wall bloobs
+layer_cannon        = pyglet.graphics.OrderedGroup(0.2)  # cannon
+layer_cannonBloob   = pyglet.graphics.OrderedGroup(0.3)  # bloobs in cannon
+layer_score         = pyglet.graphics.OrderedGroup(0.4)  # window with highest score
+layer_scoreTable    = pyglet.graphics.OrderedGroup(0.5)  # window with highest score-text
