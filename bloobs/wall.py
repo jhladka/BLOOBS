@@ -20,7 +20,7 @@ class Wall(object):
         for n in range(nbBars):
             image.anchor_x, image.anchor_y = 0, image.height
             self.wallBar.append(pyglet.sprite.Sprite(image, x=x, y=y,
-                            batch=game.batch, group=layer_wall))
+                            batch=game.batch, group=settings.layer_wall))
             y -= game.lineHeight
         self.emptyWall = False
         self.images = settings.bloobs
