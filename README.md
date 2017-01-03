@@ -10,6 +10,6 @@ Use keyboard arrows or mouse to move the cannon and shoot.
 
 This game was tested on Ubuntu 16.04.1 (also Ubuntu 14) running Python 2.7 with pyglet installed.
 
-**Screenshot **
+**Screenshot**
 
 ![screenshot](/bloobs/PNG/screenshot.png)
