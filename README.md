@@ -6,3 +6,4 @@ of the same color.
 Player can see the next bloob that will be loaded into the cannon.
 Use keyboard arrows or mouse to move the cannon and shoot.
 
+![screenshot](/bloobs/PNG/pink.png)
