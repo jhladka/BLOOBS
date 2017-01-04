@@ -7,7 +7,7 @@ Player can see the next bloob that will be loaded into the cannon.
 Use keyboard arrows or mouse to move the cannon and shoot.
 
 I used to play this game years ago on my sister's computer. 
-Since then I've been sorry that this game is available only for Windows and I cannot play it anymore.
+Since then I've been sorry that this game is available for Windows only and I cannot play it anymore.
 When I learned lately how to write Python game using Pyglet (thanks to Pyladies!) I decided to write Bloobs for Linux.
 So here it is :)
 
