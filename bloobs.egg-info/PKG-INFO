@@ -1,0 +1,27 @@
+Metadata-Version: 1.1
+Name: bloobs
+Version: 1.0
+Summary: Easy shooting game
+Home-page: https://github.com/jhladka/BLOOBS
+Author: Jarmila Hladká
+Author-email: jarka.repakova@gmail.com
+License: Public Domain
+Description: Bloobs is an easy shooting game.
+        
+        The goal is to clear the screen of bloobs.
+        To remove bloobs you have to put together at least three bloobs
+        of the same color.
+        Player can see the next bloob that will be loaded into the cannon.
+        
+        The game starts with the command 'bloobs'.
+        Use keyboard arrows or mouse to move the cannon and shoot.
+        
+Keywords: game
+Platform: UNKNOWN
+Classifier: Intended Audience :: Developers
+Classifier: License :: Public Domain
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Topic :: Games/Entertainment :: Arcade

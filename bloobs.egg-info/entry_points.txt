@@ -1,0 +1,3 @@
+[console_scripts]
+bloobs = bloobs.bloobs:main
+

@@ -1,11 +1,13 @@
 # -*- coding: utf-8 *-*
 
 import pyglet
+import os
 
 # Resource paths. Resources folder must be on same level as this file.
-pyglet.resource.path = ['PNG']
+pyglet.resource.path = [os.path.abspath(os.path.dirname(__file__)) + '/PNG']
 pyglet.resource.reindex()
 
+# Images:
 background  = 'background.png'
 wallBar     = 'wallBar.png'
 cannon      = 'cannon.png'
@@ -19,13 +21,16 @@ bloobs      = [('blue.png', 'blue'),
                ('black.png', 'black')]
 highestScore = 'highestScore.png'
 
+# Positions on the screen:
 cannonPosition        = (315, 50)
 bloobInCannonPosition = (315, 52)
 nextBloobPosition     = (562, 47)
 tntPosition           = (649, 298)
 
+# Set the velocity of shoot:
 velocity = 600
 
+# Layers of images:
 layer_background    = pyglet.graphics.OrderedGroup(0)    # background
 layer_wall          = pyglet.graphics.OrderedGroup(0.1)  # wall bloobs
 layer_cannon        = pyglet.graphics.OrderedGroup(0.2)  # cannon
