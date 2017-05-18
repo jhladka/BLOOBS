@@ -1,7 +1,7 @@
 from random import choice
-from . import settings
+import settings
 import pyglet
-from .bloob import Bloob
+from bloob import Bloob
 
 class Wall(object):
 
