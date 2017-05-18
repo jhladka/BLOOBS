@@ -1,4 +1,4 @@
-from . import settings
+import settings
 import pyglet
 import io
 
@@ -107,7 +107,7 @@ class ScoreWindow(object):
 
         # If player did not provide his name -> anonymous:
         if len(name) == 0:
-            name = 'anonymous'
+            name = u'anonymous'
 
         # Save new rank table to file:
         self.score[self.rank] = self.score[self.rank][:-1] + (name,)

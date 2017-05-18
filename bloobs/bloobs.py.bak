@@ -4,12 +4,12 @@
 
 import pyglet
 from pyglet.window import mouse
-from . import settings
-from .bloob import Bloob
-from .wall import Wall
-from .cannon import Cannon
-from .danger_bar import DangerBar
-from .score_window import ScoreWindow
+import settings
+from bloob import Bloob
+from wall import Wall
+from cannon import Cannon
+from danger_bar import DangerBar
+from score_window import ScoreWindow
 import os.path
 
 class Game(object):

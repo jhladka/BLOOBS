@@ -1,7 +1,7 @@
 from math import pi
 from math import radians
-from .bloob import Bloob
-from . import settings
+from bloob import Bloob
+import settings
 import pyglet
 
 

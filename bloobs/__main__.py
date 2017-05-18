@@ -1,3 +1,3 @@
-from bloobs import main
+from .bloobs import main
 
 main()
